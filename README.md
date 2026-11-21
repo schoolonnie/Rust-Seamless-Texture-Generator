@@ -2,7 +2,7 @@
 
 The Rust Seamless Texture Generator
 
-    -Sorry, I never came up with a clever name for it.
+   - Sorry, I never came up with a clever name for it.
 
 
 This project generates a seamlessly tileable png formatted texture image generated through OpenSimplex2 noise.
@@ -10,23 +10,23 @@ This project generates a seamlessly tileable png formatted texture image generat
 
 There are controls built in settings for adjusting various things, including:
 
-    - OpenSimplex2 variant (Fast or Smooth)
+   - OpenSimplex2 variant (Fast or Smooth)
 
-    - Seed
+   - Seed
 
-    - Frequency
+   - Frequency
 
-    - Domain warp, with adjustable settings
+   - Domain warp, with adjustable settings
 
-    - Fractaling, with adjustable settings
+   - Fractaling, with adjustable settings
 
-    - Tiling factor for previewing
+   - Tiling factor for previewing
 
 
 There is a lso a live updated preview of your texture with a button for saving as a png file.
 
 
-[Software Demo Video](http://youtube.link.goes.here)
+[Software Demo Video](https://drive.google.com/file/d/1buHhlaFhnXLRz1ZazmseEVRomMBM00jZ/view?usp=sharing)
 
 # Development Environment
 
