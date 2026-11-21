@@ -8,6 +8,7 @@ enum OpenSimplexVariant {
 
 const PREVIEW_SIZE: usize = 256;
 
+// The main function initializes the eframe application with specified options and runs the GUI
 fn main() -> eframe::Result<()> {
     let mut native_options = eframe::NativeOptions::default();
     native_options.viewport = native_options.viewport
@@ -22,6 +23,8 @@ fn main() -> eframe::Result<()> {
 
     Ok(())
 }
+
+// The MyEguiApp struct holds the state and settings for the seamless texture generator
 struct MyEguiApp {
     variant: OpenSimplexVariant,
     seed: i32,
@@ -38,6 +41,7 @@ struct MyEguiApp {
     tiling_factor: usize,
 }
 
+// Default values for the MyEguiApp struct are provided through the Default trait implementation
 impl Default for MyEguiApp {
     fn default() -> Self {
         Self {
@@ -53,17 +57,19 @@ impl Default for MyEguiApp {
             warp_frequency: 2.0,
             preview: None,
             tiled_preview: None,
-            tiling_factor: 4, // Default tiling factor
+            tiling_factor: 4,
         }
     }
 }
 
+// Initialize the app using the struct defined above
 impl MyEguiApp {
     fn new(cc: &eframe::CreationContext<'_>) -> Self {
-        cc.egui_ctx.set_visuals(egui::Visuals::dark());
+        cc.egui_ctx.set_visuals(egui::Visuals::dark()/* dark theme to save your eyes */);
         Self::default()
     }
 
+    // Sample the OpenSimplex2 noise function based on the selected variant, seed, and 4D point, returning a noise value in the range [-1.0, 1.0]
     fn sample_noise(&self, seed: i64, point: [f64; 4]) -> f32 {
         match self.variant {
             OpenSimplexVariant::Fast => opensimplex2::fast::noise4_ImproveXY_ImproveZW(
@@ -121,7 +127,7 @@ impl MyEguiApp {
 
                 // Iterate through each octave, scaling the sample point and accumulating the noise values and amplitudes to create a fractal noise effect
                 for _ in 0..octave_count {
-                    // Scaling all four coordinates keeps each octave periodic.
+                    // Scaling all four coordinates keeps each octave in the same circular pattern, ensuring that the generated texture remains seamless
                     let octave_point = sample_point.map(|coordinate| coordinate * frequency);
                     let octave_value = self.sample_noise(seed, octave_point);
 
@@ -145,6 +151,7 @@ impl MyEguiApp {
         egui::ColorImage::new([PREVIEW_SIZE, PREVIEW_SIZE], pixels)
     }
 
+    // Generate a tiled preview image by repeating the original image based on the specified tiling factor
     fn tile_preview(image: &egui::ColorImage, tiling_factor: usize) -> egui::ColorImage {
         let [width, height] = image.size;
         let mut pixels = Vec::with_capacity(width * tiling_factor * height * tiling_factor);
@@ -159,6 +166,7 @@ impl MyEguiApp {
     }
 }
 
+// Implement the eframe::App trait for MyEguiApp, defining the user interface and handling user interactions
 impl eframe::App for MyEguiApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ui, |ui| {
@@ -189,6 +197,7 @@ impl eframe::App for MyEguiApp {
                 let save_response = save_response
                     .on_hover_text("Save the current preview image to a PNG file");
 
+                // If the "Save Preview" button is clicked, generate the preview image and open a file dialog to save it as a PNG file
                 if save_response.clicked() {
                     let image = self.generate_preview();
                     let path = rfd::FileDialog::new()
@@ -201,7 +210,6 @@ impl eframe::App for MyEguiApp {
                             .iter()
                             .flat_map(|pixel| pixel.to_array())
                             .collect();
-
                         if let Some(rgba_image) =
                             image::RgbaImage::from_raw(width as u32, height as u32, pixels)
                         {
@@ -212,6 +220,7 @@ impl eframe::App for MyEguiApp {
                     }
                 }
 
+                // Add a combo box for selecting the OpenSimplex variant, a drag value for the seed, and a slider for the frequency
                 egui::ComboBox::from_label("Variant")
                     .width(130.0)
                     .selected_text(format!("{:?}", self.variant))
@@ -231,6 +240,7 @@ impl eframe::App for MyEguiApp {
                 ui.add(egui::Slider::new(&mut self.frequency, 0.001..=0.1).text("Frequency"));
             });
 
+            // Add a checkbox for enabling fractal noise and sliders for octaves, lacunarity, and gain if fractal noise is enabled
             ui.horizontal_wrapped(|ui| {
                 ui.checkbox(&mut self.fractal_enabled, "Enable fBm");
                 if self.fractal_enabled {
@@ -240,6 +250,7 @@ impl eframe::App for MyEguiApp {
                 }
             });
 
+            // Add a checkbox for enabling domain warping and sliders for warp strength and warp frequency if domain warping is enabled
             ui.horizontal_wrapped(|ui| {
                 ui.checkbox(&mut self.warp_enabled, "Enable domain warp");
                 if self.warp_enabled {
@@ -252,12 +263,14 @@ impl eframe::App for MyEguiApp {
                             .text("Warp frequency"),
                     );
                 }
+                // Add a slider for the tiling factor, allowing users to adjust how many times the preview image is tiled in the preview
                 ui.add(egui::Slider::new(&mut self.tiling_factor, 2..=8).text("Tiling Factor"));
             });
 
             // Add a separator between the controls and the preview images and create a two-column layout for the preview images
             ui.separator();
 
+            // Determine the available width for the preview images and adjust the layout based on the available space
             let available_width = ui.available_width();
             if available_width >= 700.0 {
                 ui.columns(2, |columns| {
