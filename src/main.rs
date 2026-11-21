@@ -9,7 +9,10 @@ enum OpenSimplexVariant {
 const PREVIEW_SIZE: usize = 256;
 
 fn main() -> eframe::Result<()> {
-    let native_options = eframe::NativeOptions::default();
+    let mut native_options = eframe::NativeOptions::default();
+    native_options.viewport = native_options.viewport
+        .with_inner_size([900.0, 600.0])
+        .with_min_inner_size([640.0, 400.0]);
 
     eframe::run_native(
         "Seamless Texture Generator",
@@ -176,9 +179,41 @@ impl eframe::App for MyEguiApp {
                 self.tiling_factor,
             );
 
-            // Create a horizontal layout for the controls section
-            ui.horizontal(|ui| {
-                egui::ComboBox::from_label("OpenSimplex2 Variant")
+            ui.spacing_mut().item_spacing.x = 6.0;
+            ui.spacing_mut().item_spacing.y = 6.0;
+            ui.spacing_mut().slider_width = 120.0;
+
+            // Keep controls in predictable groups and let only these groups wrap.
+            ui.horizontal_wrapped(|ui| {
+                let save_response = ui.add(egui::Button::new("Save Preview"));
+                let save_response = save_response
+                    .on_hover_text("Save the current preview image to a PNG file");
+
+                if save_response.clicked() {
+                    let image = self.generate_preview();
+                    let path = rfd::FileDialog::new()
+                        .set_file_name("preview.png")
+                        .save_file();
+                    if let Some(path) = path {
+                        let [width, height] = image.size;
+                        let pixels: Vec<u8> = image
+                            .pixels
+                            .iter()
+                            .flat_map(|pixel| pixel.to_array())
+                            .collect();
+
+                        if let Some(rgba_image) =
+                            image::RgbaImage::from_raw(width as u32, height as u32, pixels)
+                        {
+                            if let Err(err) = rgba_image.save(path) {
+                                eprintln!("Failed to save image: {}", err);
+                            }
+                        }
+                    }
+                }
+
+                egui::ComboBox::from_label("Variant")
+                    .width(130.0)
                     .selected_text(format!("{:?}", self.variant))
                     .show_ui(ui, |ui| {
                         ui.selectable_value(
@@ -194,16 +229,23 @@ impl eframe::App for MyEguiApp {
                     });
                 ui.add(egui::DragValue::new(&mut self.seed).prefix("Seed: "));
                 ui.add(egui::Slider::new(&mut self.frequency, 0.001..=0.1).text("Frequency"));
+            });
+
+            ui.horizontal_wrapped(|ui| {
                 ui.checkbox(&mut self.fractal_enabled, "Enable fBm");
                 if self.fractal_enabled {
                     ui.add(egui::Slider::new(&mut self.octaves, 1..=8).text("Octaves"));
                     ui.add(egui::Slider::new(&mut self.lacunarity, 1.0..=4.0).text("Lacunarity"));
                     ui.add(egui::Slider::new(&mut self.gain, 0.0..=1.0).text("Gain"));
                 }
+            });
+
+            ui.horizontal_wrapped(|ui| {
                 ui.checkbox(&mut self.warp_enabled, "Enable domain warp");
                 if self.warp_enabled {
                     ui.add(
-                        egui::Slider::new(&mut self.warp_strength, 0.0..=2.0).text("Warp strength"),
+                        egui::Slider::new(&mut self.warp_strength, 0.0..=2.0)
+                            .text("Warp strength"),
                     );
                     ui.add(
                         egui::Slider::new(&mut self.warp_frequency, 0.5..=8.0)
@@ -215,20 +257,44 @@ impl eframe::App for MyEguiApp {
 
             // Add a separator between the controls and the preview images and create a two-column layout for the preview images
             ui.separator();
-            ui.columns(2, |columns| {
-                columns[0].label("Single Tile");
-                columns[1].label(format!(
+
+            let available_width = ui.available_width();
+            if available_width >= 700.0 {
+                ui.columns(2, |columns| {
+                    columns[0].label("Single Tile");
+                    columns[1].label(format!(
+                        "{} x {} Tiling",
+                        self.tiling_factor, self.tiling_factor
+                    ));
+
+                    let column_width = (columns[0].available_width()
+                        .min(columns[1].available_width())
+                        .max(1.0))
+                        .min(320.0);
+
+                    if let Some(texture) = &self.preview {
+                        columns[0].image((texture.id(), egui::vec2(column_width, column_width)));
+                    }
+                    if let Some(texture) = &self.tiled_preview {
+                        columns[1].image((texture.id(), egui::vec2(column_width, column_width)));
+                    }
+                });
+            } else {
+                let preview_width = available_width.min(320.0);
+
+                ui.label("Single Tile");
+                if let Some(texture) = &self.preview {
+                    ui.image((texture.id(), egui::vec2(preview_width, preview_width)));
+                }
+
+                ui.label(format!(
                     "{} x {} Tiling",
                     self.tiling_factor, self.tiling_factor
-                ));
-
-                if let Some(texture) = &self.preview {
-                    columns[0].image((texture.id(), egui::vec2(320.0, 320.0)));
-                }
+               ));
                 if let Some(texture) = &self.tiled_preview {
-                    columns[1].image((texture.id(), egui::vec2(320.0, 320.0)));
+                    ui.image((texture.id(), egui::vec2(preview_width, preview_width)));
                 }
-            });
+            }
 
             // Check if the settings have changed or if the preview is not generated yet, and generate a new preview image if necessary
             let current_settings = (
